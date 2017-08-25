@@ -57,7 +57,13 @@ Every map for this plugin consists of the `.bsp` file (the map itself) and two d
 
 The blocks file defines the layout of open areas while the `ini` file stores general world information.
 
-### breakfloor_4096
+### Counter-Strike: Global Offensive
+#### breakfloor_4096
 Currently the only map for this plugin is made by me. Its world is 16x16x16 (thus 4096 in the title), but the actual number of breakable blocks is 3474.
 
 The `.bsp` can be downloaded [here](https://yadi.sk/d/D0fMc6K13MKtua), the data files for this map are shipped with DigRats ([/srcds/mapdata/digrats](https://github.com/KirillMysnik/SP-DigRats/tree/master/srcds/mapdata/digrats)).
+
+
+### Counter-Strike: Source
+#### breakfloor_4096
+The backport of the CS:GO original **breakfloor_4096**. Can be downloaded [here](https://yadi.sk/d/rDQLIjJd3MLFgo), the data files are the same for both version and can be found [here](https://github.com/KirillMysnik/SP-DigRats/tree/master/srcds/mapdata/digrats).
