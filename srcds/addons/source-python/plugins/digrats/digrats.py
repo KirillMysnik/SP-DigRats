@@ -14,7 +14,7 @@ from engines.server import global_vars
 from engines.sound import Attenuation, Sound, SOUND_FROM_WORLD
 from entities import TakeDamageInfo
 from entities.constants import WORLD_ENTITY_INDEX
-from entities.entity import Entity
+from entities.entity import Entity, BaseEntity
 from entities.helpers import index_from_pointer
 from entities.hooks import EntityCondition, EntityPreHook
 from events import Event
@@ -299,19 +299,19 @@ class BlockFlags(IntFlag):
 
 
 class BlockType(IntEnum):
-    
+
     # VOID is an undiscovered world. It might get replaced with LAYER and then
     # with WORLD.
     VOID = 0
-    
+
     # WORLD is a discovered part of world. It's a subject to be restored
     # back to LAYER when there're no players around.
     WORLD = 1
-    
+
     # WORLD is a part of world that is always discovered. It's never restored
     # to LAYER.
     WORLD_IMMUNE = 2
-    
+
     # LAYER is the border of the world. Each LAYER block has a func_breakable
     # representing it. When this type of block is broken, it's replaced with
     # WORLD and its VOID neighbours become LAYER.
@@ -691,7 +691,7 @@ class Block:
             return
 
         self.immune_block_area.try_deactivate()
-    
+
     def activate_area(self):
         if self.type != BlockType.WORLD_IMMUNE:
             return
@@ -840,10 +840,7 @@ def is_world_entity(index):
     if index == WORLD_ENTITY_INDEX:
         return True
 
-    if Entity(index).classname != 'player':
-        return True
-
-    return False
+    return BaseEntity(index).classname != 'player':
 
 
 def find_template_blocks(block_type):
@@ -1057,11 +1054,11 @@ def pre_on_take_damage(stack_data):
 @EntityPreHook(
     EntityCondition.equals_entity_classname(BLOCK_ENTITY), 'on_take_damage')
 def pre_on_take_damage(stack_data):
-    entity = make_object(Entity, stack_data[0])
-    if entity.index not in _blocks_by_solids:
+    index = index_from_pointer(stack_data[0])
+    if index not in _blocks_by_solids:
         return
 
-    block = _blocks_by_solids[entity.index]
+    block = _blocks_by_solids[index]
 
     info = make_object(TakeDamageInfo, stack_data[1])
 
