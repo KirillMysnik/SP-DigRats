@@ -840,7 +840,7 @@ def is_world_entity(index):
     if index == WORLD_ENTITY_INDEX:
         return True
 
-    return BaseEntity(index).classname != 'player':
+    return BaseEntity(index).classname != 'player'
 
 
 def find_template_blocks(block_type):
