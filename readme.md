@@ -7,7 +7,7 @@ It keeps only those blocks that are directly visible to players.
 
 Once a player leaves an area, blocks start restoring there - but in fact even more blocks are removed because they've been hidden by the restored ones.
 
-The principle can be seen in this video: https://youtu.be/U3bTLqXQkVQ
+The principle can be seen in this video: https://youtu.be/U3bTLqXQkVQ (the debug mode is turned on there, and the rates of block creation is reduced so that you get the idea - the real rate is much higher).
 
 ## Ideas
 Besides the main idea, there're few others that help keeping the server healthy.
@@ -50,7 +50,7 @@ Current default value of `digrats_max_entities` is 500.
 One good thing about the original breakfloor maps is that you don't only dig your own tunnels - you can search the tunnels made by the opposite team!
 
 Unfortunately, the restoring routine of this plugin makes this impossible...
-Or not? The idea is to colorize the restored blocks with the color of the team that previously broken it.
+Or not? The idea is to colorize the restored blocks with the color of the team that previously broke it.
 
 ## Maps
 Every map for this plugin consists of the `.bsp` file (the map itself) and two data files: `<map name>.blocks.txt` and `<map name>.ini`.
