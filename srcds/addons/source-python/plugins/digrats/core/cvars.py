@@ -27,9 +27,9 @@ def ufloat_handler(cvar):
 config_manager = ControlledConfigManager(info.name, cvar_prefix='digrats_')
 
 config_manager.section(config_strings['section debug_settings'])
-cvar_timelimit = config_manager.controlled_cvar(
+config_manager.controlled_cvar(
     color_handler,
-    "debug_breaking_block",
+    name="debug_breaking_block",
     default="255,0,0,50",
     description=config_strings['debug_breaking_block'],
 )
