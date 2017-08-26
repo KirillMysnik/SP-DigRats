@@ -13,8 +13,8 @@ from commands.typed import TypedSayCommand
 from engines.server import global_vars
 from engines.sound import Attenuation, Sound, SOUND_FROM_WORLD
 from entities import TakeDamageInfo
-from entities.constants import WORLD_ENTITY_INDEX
-from entities.entity import Entity, BaseEntity
+from entities.constants import RenderMode, WORLD_ENTITY_INDEX
+from entities.entity import BaseEntity
 from entities.helpers import index_from_pointer
 from entities.hooks import EntityCondition, EntityPreHook
 from events import Event
@@ -38,7 +38,15 @@ from .info import info
 # >> CONSTANTS
 # =============================================================================
 BLOCK_ENTITY = "func_breakable"
-
+REQUIRED_SERVER_CLASS_PROPERTIES = (
+    'm_nModelIndex',
+    'm_Material',
+    #'m_iszModelName',
+)
+REQUIRED_SERVER_CLASS_ATTRIBUTES = (
+    'teleport',
+    'break'
+)
 DEFAULT_BLOCK_RESTORE_SOUNDS = (
     "items/battery_pickup.wav",
 )
@@ -84,6 +92,8 @@ _debug_msg = HudMsg(
     fx_time=HUDMSG_FXTIME,
     channel=HUDMSG_CHANNEL,
 )
+_server_classes_by_prop = {}
+_server_classes_by_attr = {}
 
 
 # =============================================================================
@@ -205,12 +215,39 @@ class EntitySpawnRequest:
         global _total_entities
         _total_entities += 1
 
-        entity = Entity.create(BLOCK_ENTITY)
-        entity.model = self._prototype.model
-        entity.health = self._prototype.health
-        entity.set_property_int('m_Material', self._prototype.material)
-        entity.teleport(self._origin)
-        entity.spawn()
+        base_entity = BaseEntity.create(BLOCK_ENTITY)
+
+        # Set model index and surface type
+        props = {
+            'm_nModelIndex': self._prototype.model.index,
+            'm_Material': self._prototype.material,
+        }
+
+        for name, value in props.items():
+            setattr(make_object(
+                _server_classes_by_prop[name]._properties,
+                base_entity.pointer
+            ), name, value)
+
+            # TODO: I guess we can report the state change for all property
+            # changes at once, outside of this loop?
+            if _server_classes_by_prop[name].properties[name].networked:
+                base_entity.edict.state_changed()
+
+        # Set model name
+        base_entity.model_name = self._prototype.model.path
+
+        # Set health
+        base_entity.set_key_value_int('health', self._prototype.health)
+
+        # Call teleport()
+        getattr(make_object(
+            _server_classes_by_attr['teleport'],
+            base_entity.pointer
+        ), 'teleport')(self._origin, None, None)
+
+        # Spawn
+        base_entity.spawn()
 
         if self._sound_effects:
             Sound(
@@ -221,7 +258,7 @@ class EntitySpawnRequest:
                 origin=self._origin
             ).play()
 
-        self._callback(entity)
+        self._callback(base_entity)
 
     def cancel(self):
         _spawn_requests_queue.remove(self)
@@ -528,7 +565,12 @@ class Block:
             return
 
         if _debug_mode:
-            self._entity.color = config_manager['debug_breaking_block']
+            color = config_manager['debug_breaking_block']
+            self._entity.set_key_value_int(
+                'rendermode', RenderMode.TRANS_COLOR)
+
+            self._entity.set_key_value_color('rendercolor', color)
+            self._entity.set_key_value_int('renderamt', color.a)
 
         self.flags |= BlockFlags.BREAKING
         self.make_borders()
@@ -537,7 +579,10 @@ class Block:
         if not self.flags & BlockFlags.BREAKING:
             return
 
-        self._entity.color = COLOR_NORMAL_BLOCK
+        self._entity.set_key_value_int('rendermode', RenderMode.NORMAL)
+        self._entity.set_key_value_color('rendercolor', COLOR_NORMAL_BLOCK)
+        self._entity.set_key_value_int('renderamt', 255)
+
         self.flags &= ~BlockFlags.BREAKING
 
     def make_borders(self, ignored_neighbours=None):
@@ -584,7 +629,12 @@ class Block:
 
             del _blocks_by_solids[self._entity.index]
 
-            getattr(self._entity, 'break')()
+            # Call break()
+            getattr(make_object(
+                _server_classes_by_attr['break'],
+                self._entity.pointer
+            ), 'break')()
+
             self._entity = None
 
             if self._remove_request is not None:
@@ -844,8 +894,23 @@ def is_world_entity(index):
 
 
 def find_template_blocks(block_type):
+    _server_classes_by_prop.clear()
+    _server_classes_by_attr.clear()
     results = []
     for entity in EntityIter(BLOCK_ENTITY):
+        for server_class in entity.server_classes:
+            for prop_name in REQUIRED_SERVER_CLASS_PROPERTIES:
+                if (prop_name not in _server_classes_by_prop and
+                        prop_name in server_class.properties):
+
+                    _server_classes_by_prop[prop_name] = server_class
+
+            for attr_name in REQUIRED_SERVER_CLASS_ATTRIBUTES:
+                if (attr_name not in _server_classes_by_attr and
+                        hasattr(server_class, attr_name)):
+
+                    _server_classes_by_attr[attr_name] = server_class
+
         if entity.target_name == f"block_{block_type}":
             results.append(entity)
 
