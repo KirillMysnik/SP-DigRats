@@ -14,6 +14,7 @@ from engines.server import global_vars
 from engines.sound import Attenuation, Sound, SOUND_FROM_WORLD
 from entities import TakeDamageInfo
 from entities.constants import RenderMode, WORLD_ENTITY_INDEX
+from entities.datamaps import InputData
 from entities.entity import BaseEntity
 from entities.helpers import index_from_pointer
 from entities.hooks import EntityCondition, EntityPreHook
@@ -38,15 +39,6 @@ from .info import info
 # >> CONSTANTS
 # =============================================================================
 BLOCK_ENTITY = "func_breakable"
-REQUIRED_SERVER_CLASS_PROPERTIES = (
-    'm_nModelIndex',
-    'm_Material',
-    #'m_iszModelName',
-)
-REQUIRED_SERVER_CLASS_ATTRIBUTES = (
-    'teleport',
-    'break'
-)
 DEFAULT_BLOCK_RESTORE_SOUNDS = (
     "items/battery_pickup.wav",
 )
@@ -92,8 +84,6 @@ _debug_msg = HudMsg(
     fx_time=HUDMSG_FXTIME,
     channel=HUDMSG_CHANNEL,
 )
-_server_classes_by_prop = {}
-_server_classes_by_attr = {}
 
 
 # =============================================================================
@@ -218,21 +208,10 @@ class EntitySpawnRequest:
         base_entity = BaseEntity.create(BLOCK_ENTITY)
 
         # Set model index and surface type
-        props = {
-            'm_nModelIndex': self._prototype.model.index,
-            'm_Material': self._prototype.material,
-        }
-
-        for name, value in props.items():
-            setattr(make_object(
-                _server_classes_by_prop[name]._properties,
-                base_entity.pointer
-            ), name, value)
-
-            # TODO: I guess we can report the state change for all property
-            # changes at once, outside of this loop?
-            if _server_classes_by_prop[name].properties[name].networked:
-                base_entity.edict.state_changed()
+        base_entity.set_datamap_property_short(
+            'm_nModelIndex', self._prototype.model.index)
+        base_entity.set_datamap_property_int(
+            'm_Material', self._prototype.material)
 
         # Set model name
         base_entity.model_name = self._prototype.model.path
@@ -240,11 +219,8 @@ class EntitySpawnRequest:
         # Set health
         base_entity.set_key_value_int('health', self._prototype.health)
 
-        # Call teleport()
-        getattr(make_object(
-            _server_classes_by_attr['teleport'],
-            base_entity.pointer
-        ), 'teleport')(self._origin, None, None)
+        # Set the origin
+        base_entity.set_key_value_vector('origin', self._origin)
 
         # Spawn
         base_entity.spawn()
@@ -630,10 +606,7 @@ class Block:
             del _blocks_by_solids[self._entity.index]
 
             # Call break()
-            getattr(make_object(
-                _server_classes_by_attr['break'],
-                self._entity.pointer
-            ), 'break')()
+            self._entity.datamap.find('Break').input_function()(InputData())
 
             self._entity = None
 
@@ -894,23 +867,8 @@ def is_world_entity(index):
 
 
 def find_template_blocks(block_type):
-    _server_classes_by_prop.clear()
-    _server_classes_by_attr.clear()
     results = []
     for entity in EntityIter(BLOCK_ENTITY):
-        for server_class in entity.server_classes:
-            for prop_name in REQUIRED_SERVER_CLASS_PROPERTIES:
-                if (prop_name not in _server_classes_by_prop and
-                        prop_name in server_class.properties):
-
-                    _server_classes_by_prop[prop_name] = server_class
-
-            for attr_name in REQUIRED_SERVER_CLASS_ATTRIBUTES:
-                if (attr_name not in _server_classes_by_attr and
-                        hasattr(server_class, attr_name)):
-
-                    _server_classes_by_attr[attr_name] = server_class
-
         if entity.target_name == f"block_{block_type}":
             results.append(entity)
 
